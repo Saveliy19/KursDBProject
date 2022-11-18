@@ -8,9 +8,10 @@
     </head>
     <body>
       <div>
+        <img src="D:\myproject\app\templates\doc_log.jpg" title = "YH" width="25" height="25">
           Твое здоровье:
           <a href="/">На главную</a>
-          <a href="{{ url_for('login') }}">Войти</a>
+          <a href="{{ url_for('login') }}">Профиль</a>
       </div>
       <hr>
       {% with messages = get_flashed_messages() %}
