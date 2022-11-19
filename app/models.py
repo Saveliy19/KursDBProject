@@ -1,30 +1,40 @@
 '''файл взаимодействия с таблицами базы данных'''
 from werkzeug.security import generate_password_hash, check_password_hash
+
 import psycopg2
 from psycopg2 import Error
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
-from config import Config
-from flask_login import UserMixin
-from abc import ABC, abstractmethod
+from datetime import datetime
+
+import app
 from app import login
+
+from flask_login import UserMixin
+
 
 #класс бд (подключение, запросы)
 class Database(object):
+
+    '''_database = app.config.Config['db_name']
+    _user = app.Config['user']
+    _user_password = app.Config['password']
+    _db_host = app.Config['host']
+
     _user=Config.user,
     _password=Config.password,
     _host=Config.host,
     _database=Config.db_name
-    _connection: psycopg2 = None
+    _connection: psycopg2 = None'''
 
 
     @classmethod
     def _connect_to_db(cls) -> psycopg2:
         try:
             # Подключение к существующей базе данных
-            cls._connection = psycopg2.connect(user=cls._user,
-                                        password=cls._password,
-                                        host=cls._host,
-                                        database=cls._database)
+            cls._connection = psycopg2.connect(user='sav',
+                                        password="kotikiandsobachki",
+                                        host='localhost',
+                                        database="medical_service")
 
         except psycopg2.OperationalError as ex:
             print(f'the operational error:\n{ex}')
@@ -38,7 +48,7 @@ class Database(object):
     def execute_query(cls, query) -> bool:
         cls._connect_to_db()
         cls._connection.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
-        cursor = cls._connect_to_db.cursor()
+        cursor = cls._connection.cursor()
         try:
             cursor.execute(query)
         except psycopg2.OperationalError as ex:
@@ -55,6 +65,30 @@ class Database(object):
                 print("Соединение с PostgreSQL закрыто")
         return False
 
+    @classmethod
+    def select_query(cls, query) -> list:
+        cls._connect_to_db()
+        cls._connection.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
+        cursor = cls._connection.cursor()
+        try:
+            cursor.execute(query)
+            result = cursor.fetchall()
+        except psycopg2.OperationalError as ex:
+            print(f'the operational error:\n{ex}')
+        except BaseException as ex:
+            print(f'the error:\n{ex}')
+        else:
+            print('Вот результат селекта:')
+            print(result)
+            return result
+        finally:
+            if cls._connection:
+                cursor.close()
+                cls._connection.close()
+                print("Соединение с PostgreSQL закрыто")
+        return None
+
+
     
 
 
@@ -65,15 +99,15 @@ class User(UserMixin):
     def __init__(self,
                 id: int = 0,
                 sertificate: str = "",
-                password_hash: str = "",
                 name: str = "",
-                birthdate: str = ""):
+                birthdate: str = "",
+                password_hash: str = ""):
 
                 self.id : int = id
                 self.sertificate: str = sertificate
-                self.password_hash: str = password_hash
                 self.name : str = name
                 self.birthdate : str = birthdate
+                self.password_hash: str = password_hash
 
     def __repr__(self):
         return f'<User {self.sertificate}>'
@@ -94,28 +128,26 @@ class User(UserMixin):
 
     
     #добавляем пользователя
-    @classmethod
     def adduser(self):
-        query = f'INSERT INTO "CLIENT" ("SERTIFICATE", "FIO", "BIRTHDATE", "PASSWORD") VALUES ({self.sertificate}, {self.name}, {self.birthdate}, {self.password_hash});'
+        query = f'''INSERT INTO "CLIENT" ("SERTIFICATE", "FIO", "BIRTHDATE", "PASSWORD") VALUES ('{self.sertificate}', '{self.name}', '{self.birthdate}', '{self.password_hash}');'''
         return Database.execute_query(query)
 
     #получаем пользователя по id
-    @classmethod
-    def get_by_id(cls, id: int):
-        query = '''SELECT * FROM {} WHEERE ID = {};'''.format(cls.name, id)
-        result = Database._connect_to_db(query)
+    def get_by_id(id: int):
+        print(f"вот такой id передается для поиска {id}")
+        query = f'''SELECT * FROM "CLIENT" WHERE "ID" = '{id}';'''
+        result = Database.select_query(query)
+        print(f"Пользователь с таким id {result}")
         if result is None or len(result)==0:
             return None
         else:
-            print(result)
             params = result[0]
             return User(* params)
 
     #получаем пользователя по номеру полиса
-    @classmethod
-    def get_by_sertificate(cls, sertificate: str):
-        query = '''SELECT * FROM {} WHERE SERTIFICATE = {}'''.format(cls.name, sertificate)
-        result = Database._connect_to_db(query)
+    def get_by_sertificate(sertificate: str):
+        query = f'''SELECT * FROM "CLIENT" WHERE "SERTIFICATE" = '{sertificate}';'''
+        result = Database.select_query(query)
         if result is None or len(result)==0:
             return None
         else:
@@ -125,7 +157,7 @@ class User(UserMixin):
 
 
 
-
+    
 
 
 
@@ -137,11 +169,13 @@ class User(UserMixin):
 
 
 
-#метод загрузки пользователя
+#метод загрузки клиента
 @login.user_loader
-def load_user(id):
+def load_user(id: str):
     user = User.get_by_id(int(id))
     print(f'user loaded, user = {user}')
     return user
+
+
 
 

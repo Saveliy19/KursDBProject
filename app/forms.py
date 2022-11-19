@@ -5,7 +5,8 @@
 
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, BooleanField, SubmitField
-from wtforms.validators import DataRequired
+from wtforms.validators import DataRequired, ValidationError, EqualTo
+from app.models import User
 
 class LoginForm(FlaskForm):
     username = StringField('Номер полиса', validators=[DataRequired()])
@@ -30,8 +31,14 @@ class RegistrationForm(FlaskForm):
     month = StringField('Месяц', validators=[DataRequired()])
     username = StringField('Номер полиса', validators=[DataRequired()])
     password1 = PasswordField('Пароль', validators=[DataRequired()])
-    password2 = PasswordField('Повторите пароль', validators=[DataRequired()])
+    password2 = PasswordField('Повторите пароль', validators=[DataRequired(), EqualTo('password1')])
     submit = SubmitField('Регистрация')
+
+    def validate_username(self, username):
+        user = User.get_by_sertificate(username.data)
+        if user is not None:
+            raise ValidationError('Пожалуйста, введите номер полиса, принадлежащий Вам!')
+        return
 
 # форма редактирования профиля
 class EditProfileForm(FlaskForm):
